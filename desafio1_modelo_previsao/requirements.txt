@@ -10,4 +10,5 @@ pandas
 pip
 python-dotenv
 scikit-learn
+statsmodels
 -e .
