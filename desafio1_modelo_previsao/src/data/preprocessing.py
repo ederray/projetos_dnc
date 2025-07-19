@@ -1,5 +1,6 @@
 """Funções de tratamento dos dados"""
 import logging
+import holidays
 from pandas import DataFrame, Series
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
@@ -49,6 +50,16 @@ def lag_data(df: DataFrame, coluna: str, lag: list[int]) -> DataFrame:
         df[f'{coluna}_lag_{lag}'] = df[coluna].shift(lag)
     return df
 
+def dados_temporais(df: DataFrame) -> DataFrame:
+    """Função que insere colunas com dados temporais a partir do index do Dataframe"""
+    df['Dia_Semana'] = df.index.day
+    df['Mês'] = df.index.month
+
+    # criação do objeto com os feriados brasileiros
+    br_holidays = holidays.BR()
+    df['Feriado'] = df.index.to_series().apply(lambda x: x in br_holidays)
+
+    return df
 
 def grafico_decomposicao_temporal(df: DataFrame, target: str, n: int):
     """Função para construção de uma decomposição de série temporal."""
