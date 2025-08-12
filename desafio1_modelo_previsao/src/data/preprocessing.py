@@ -82,6 +82,43 @@ def testar_estacionariedade(serie, nome="Série"):
     else:
         print("⚠️ Série NÃO estacionária (não rejeita H₀)")
 
+def autocorrelacao_lags(serie, max_lag:int, titulo='Autocorrelação of Lags', retornar=False):
+    """
+    Calcula a autocorrelação de uma série temporal para diferentes lags, com logging e gráfico.
+
+    Parâmetros:
+    - serie: pd.Series com índice temporal.
+    - max_lag: número máximo de lags a considerar.
+    - titulo: título do gráfico gerado.
+    - retornar: se True, retorna um dicionário {lag: correlação}
+
+    Retorno:
+    - dicionário {lag: correlação} se retornar=True
+    """
+    logging.info(f'Calculando autocorrelação de lags até {max_lag}')
+    resultados = {}
+
+    for lag in range(1, max_lag + 1):
+        corr = serie.autocorr(lag=lag)
+        resultados[lag] = corr
+        logging.debug(f'Lag {lag}: Correlation = {corr:.4f}')
+
+    # Exibe o gráfico
+    plt.figure(figsize=(10, 4))
+    plt.plot(list(resultados.keys()), list(resultados.values()), marker='o')
+    plt.title(titulo)
+    plt.xlabel('Lag')
+    plt.ylabel('Autocorrelation')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    logging.info('Autocorrelação plotada com sucesso.')
+
+    if retornar:
+        return resultados
+
+
 def grafico_acf(coluna_target:Series, n_lag:int):
     """Função para gerar o gráfico de autocorrelação"""
     plot_acf(coluna_target, lags=n_lag, title=f'Autocorrelação de {n_lag}lags') 
