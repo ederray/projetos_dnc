@@ -70,7 +70,13 @@ def filtragem_iterativa_valores_catogoricos(df: DataFrame, coluna: str) -> DataF
 
         return filtro
 
-
+def filtrar_feature_valor_categorico(df: DataFrame, query:str) -> DataFrame:
+    """Função que aplica um filtro em uma variável categorica ou em um conjunto delas através do método df.query"""
+    try:
+        output = df.query(query)
+    except Exception as e:
+        logger.error(e)
+    return output
 
 def selecao_colunas(df: DataFrame, colunas: list) -> DataFrame:
     """Função que seleciona as colunas para montagem do dataset"""
