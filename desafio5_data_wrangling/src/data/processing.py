@@ -4,7 +4,7 @@ from ipywidgets import interact, HTML, Output, Dropdown, VBox
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
-from pandas import DataFrame
+from pandas import DataFrame, Series
 import sidetable
 import missingno as msno
 import pandas as pd
@@ -17,8 +17,11 @@ def amostra_dados(df: DataFrame) -> DataFrame:
     """Função para retornar a amostragem dos dados"""
     return df.sample(3)
 
+def contagem_valores(coluna:Series) -> None: 
+    """Função que realiza a contagem de valores por coluna"""
+    return coluna.value_counts()
 
-def verificacao_nulos(df:DataFrame) -> pd.Series:
+def verificacao_nulos(df:DataFrame) -> Series:
     """Função que realiza a contagem de valores nulos por feature do dataset"""
     output = df.isna().sum()
     return output
@@ -29,11 +32,7 @@ def filtrar_linhas_valores_nulos(df:DataFrame) -> pd.DataFrame:
     logger.info(f"Contagem de linhas nulas para o dataframe:{output.shape[0]}")
     return output
 
-def matriz_valores_nulos(df:DataFrame)-> plt.plot:
-    """Função que gera uma matriz esparsa com a visualização dos valores nulos intercalado com valores preenchidos por coluna"""
-    msno.matrix(df, figsize=(10,4))
-    plt.title("Matriz esparsa de valores nulos.", fontdict={'fontsize':12})
-    return plt.show()
+
 
 def frequencia_valores_nulos(df:DataFrame) -> pd.DataFrame:
     """Função que gera uma matriz esparsa com a visualização dos valores nulos intercalado com valores preenchidos por coluna"""
@@ -54,7 +53,6 @@ def verificar_linhas_duplicadas(df:pd.DataFrame)->pd.DataFrame:
     )
     return output
 
-
 def remover_duplicados(df: DataFrame, coluna: str) -> DataFrame:
     """Função para remoção de valores duplicados."""
     df.drop_duplicates(subset=[coluna], keep='first', inplace=True)
@@ -70,6 +68,114 @@ def filtragem_iterativa_valores_catogoricos(df: DataFrame, coluna: str) -> DataF
 
         return filtro
 
+def filtrar_feature_valor_categorico(df: DataFrame, query:str) -> DataFrame:
+    """Função que aplica um filtro em uma variável categorica ou em um conjunto delas através do método df.query"""
+    try:
+        output = df.query(query)
+    except Exception as e:
+        logger.error(e)
+    return output
+
+def imputar_dados_room_type_entire_home_apt(df: DataFrame):
+    """Função para transformar e tratar os valores das colunas bathrooms, bedrooms e 
+    beds relacioanados ao filtro da coluna room_type=='Entire home/apt'."""
+
+    # filtra o dataset a partir dos valores da coluna room_type == 'Entire home/apt'
+    df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Entire home/apt'")
+
+    # 'Entire home/apt' exige a presença de 1 banheiro na residência por legislação.
+    df_filtrado.loc[df_filtrado['bathrooms']<1,'bathrooms'] = 1
+
+    # 'Entire home/apt' com bedrooms e beds menor que 1 provavelmente corresponde a um tipo de acomodação kitnet ou studio.
+    df_filtrado.loc[(df_filtrado['bedrooms'] < 1) | (df_filtrado['beds'] < 1),['bedrooms','beds']] = 0
+
+    # quantidade de banheiros e quartos vazios preenchidos com a moda de ocorrência dos valores
+    df_filtrado.loc[df_filtrado['bathrooms'].isna(),'bathrooms'] = df_filtrado['bathrooms'].mode()[0]
+    df_filtrado.loc[df_filtrado['bedrooms'].isna(),'bedrooms'] = df_filtrado['bedrooms'].mode()[0]
+
+    # quatidade de camas definidas a partir de uma taxa de acomodações/2
+    df_filtrado.loc[df_filtrado['beds'].isna(),'beds'] = np.ceil(df_filtrado['accommodates'] / 2)
+
+    return df_filtrado
+
+
+def imputar_dados_room_type_private_room(df: DataFrame):
+    """Função para transformar e tratar os valores das colunas bathrooms, bedrooms e 
+    beds relacioanados ao filtro da coluna room_type=='Private room'."""
+
+    # filtra o dataset a partir dos valores da coluna room_type == 'Private room'
+    df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Private room'")
+
+    # realiza o tratamento de valores a partir das regras definindas:
+    # 'Private room' exige a presença de 1 quarto exclusivo
+    df_filtrado.loc[df_filtrado['bedrooms'].isna(),'bedrooms'] = 1
+
+    # quatidade de camas definidas a partir de uma taxa de acomodações/2
+    df_filtrado.loc[df_filtrado['beds'].isna(),'beds'] = np.ceil(df_filtrado['accommodates'] / 2)
+
+    # quantidade de banheiros vazios preenchidos com a moda.
+    df_filtrado.loc[df_filtrado['bathrooms'].isna(),'bathrooms'] = df_filtrado['bathrooms'].mode()[0]
+
+
+    return df_filtrado
+
+def imputar_dados_room_type_shared_room(df: DataFrame):
+    """Função para transformar e tratar os valores das colunas bathrooms, bedrooms e 
+    beds relacioanados ao filtro da coluna room_type=='Shared room'."""
+
+    # filtra o dataset a partir dos valores da coluna room_type == 'Shared room'
+    df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Shared room'")
+
+    # 'Shared room' não exige a presença de 1 quarto ou banheiro exclusivos.
+    df_filtrado.loc[df_filtrado['bedrooms'].isna(),['bedrooms','bathrooms','beds']] = 0
+
+    return df_filtrado
+
+def imputar_dados_room_type_hotel_room(df: DataFrame):
+    """Função para transformar e tratar os valores das colunas bathrooms, bedrooms e 
+    beds relacioanados ao filtro da coluna room_type=='Hotel room'."""
+
+    # filtra o dataset a partir dos valores da coluna room_type == 'Hotel room'
+    df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Hotel room'")
+
+    # quantidade de quartos preenchidos com a moda
+    df_filtrado.loc[df_filtrado['bedrooms'].isna(),'bedrooms'] = df_filtrado['bedrooms'].mode()[0]
+
+    # quantidade de banheiros vazios preenchidos com a moda.
+    df_filtrado.loc[df_filtrado['bathrooms'].isna(),'bathrooms'] = df_filtrado['bathrooms'].mode()[0]
+
+    # quantidade de banheiros menor que 1 preenchidos com valor 1, já que quarto de hotel tem banheiro.
+    df_filtrado.loc[df_filtrado['bathrooms']<1,'bathrooms'] = 1
+
+    # quatidade de camas definidas a partir de uma taxa de acomodações/2
+    df_filtrado.loc[df_filtrado['beds'].isna(),'beds'] = np.ceil(df_filtrado['accommodates'] / 2)
+
+    return df_filtrado
+
+def imputar_dados_price(df: DataFrame):
+    """Função para transformar e tratar os valores da coluna price com a média por tipo de acomodação 
+    em cada bairro ou com a media do tipo de acomodação."""
+
+    # cópia do dataset original
+    df_copia = df.copy() # Criamos uma 
+
+    try:
+        # Imputação de valores vazios por tipo de quarto em cada bairro
+        df_copia['price'] = df_copia.groupby(['room_type', 'neighbourhood_cleansed'])['price'].transform(
+            lambda x: x.fillna(x.mean())
+        )
+
+        # Imputação de valores vazios restantes por tipo de quarto.
+        df_copia['price'] = df_copia.groupby('room_type')['price'].transform(
+            lambda x: x.fillna(x.mean())
+        )
+
+    except Exception as e:
+        print(f"Ocorreu um erro durante a imputação de preços: {e}")
+        # Retorna o DataFrame original caso ocorra um erro
+        return df
+
+    return df_copia
 
 
 def selecao_colunas(df: DataFrame, colunas: list) -> DataFrame:
@@ -93,105 +199,3 @@ def agrupar_dados(df: pd.DataFrame, cols_agrup: list, cols_filter: list=None, ag
     return df
 
 
-def boxplot_analise_descritiva_categorica(df: pd.DataFrame, distribuicao: list[float], feature: str):
-    """
-    Exibe um boxplot das features numéricas para cada valor selecionado de uma feature categórica.
-
-    Args:
-        df (pd.DataFrame): DataFrame com dados.
-        distribuicao (list[float]): Lista de percentis para a análise (não usada diretamente aqui, mas mantida).
-        feature (str): Coluna categórica a ser usada para seleção (ex: 'ticker', 'setor', etc.).
-    """
-    opcoes = sorted(df[feature].dropna().unique())
-
-    @interact(coluna=opcoes)
-    def plot(coluna):
-        try:
-            logger.info(f"Gerando boxplot para {feature} = {coluna}")
-
-            # Filtra os dados com base na seleção
-            dados_filtrados = df[df[feature] == coluna]
-            dados_numericos = dados_filtrados.select_dtypes(include='number')
-
-            if dados_numericos.empty:
-                logger.warning(f"Nenhuma coluna numérica para {feature} = {coluna}")
-                print("Nenhum dado numérico disponível.")
-                return
-
-            # Aplica minmax_scale
-            scaler = StandardScaler()
-            norm = PowerTransformer(method='yeo-johnson')
-            dados_normalizados = pd.DataFrame(scaler.fit_transform(norm.fit_transform(dados_numericos)), 
-                columns=dados_numericos.columns)
-
-            # Cria boxplot com as colunas no eixo X
-            plt.figure(figsize=(14, 6))
-            dados_normalizados.boxplot()
-            plt.xticks(rotation=60)
-            plt.title(f"Análise Descritiva - {feature}: {coluna}")
-            plt.ylabel("Valor Normalizado (MinMax)")
-            plt.tight_layout()
-            plt.show()
-
-        except Exception as e:
-            logger.error(f"Erro ao gerar gráfico: {e}")
-            print("Erro:", e)
-
-
-def histograma_feature_categorica(df: pd.DataFrame, feature: str):
-    """
-    Exibe histogramas das colunas numéricas para os registros filtrados por uma feature categórica.
-
-    Args:
-        df (pd.DataFrame): DataFrame com os dados.
-        feature (str): Coluna categórica usada para filtrar os dados (ex: 'ticker').
-    """
-    opcoes = sorted(df[feature].dropna().unique())
-
-    @interact(coluna=opcoes)
-    def plot(coluna):
-        try:
-            logger.info(f"Gerando histograma para {feature} = {coluna}")
-
-            # Filtra os dados
-            dados_filtrados = df[df[feature] == coluna]
-            dados_numericos = dados_filtrados.select_dtypes(include='number')
-
-            transform_box_cox = PowerTransformer(method='yeo-johnson').fit_transform(dados_numericos)
-
-            if dados_numericos.empty:
-                logger.warning(f"Nenhuma coluna numérica para {feature} = {coluna}")
-                print("Nenhum dado numérico disponível.")
-                return
-
-            # Normaliza com MinMaxScaler
-            normalizado = pd.DataFrame(
-                StandardScaler().fit_transform(transform_box_cox),
-                columns=dados_numericos.columns
-            )
-
-            # Define layout dos subplots
-            num_colunas = len(normalizado.columns)
-            cols = 3  # Número de colunas de plots por linha
-            rows = int(np.ceil(num_colunas / cols))
-
-            fig, axs = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
-            axs = axs.flatten()  # Para indexar linearmente
-
-            for i, col in enumerate(normalizado.columns):
-                axs[i].hist(normalizado[col], color='steelblue', alpha=0.7)
-                axs[i].set_title(col)
-                axs[i].set_xlabel('Valor Normalizado')
-                axs[i].set_ylabel('Frequência')
-
-            # Remove eixos não utilizados
-            for j in range(i + 1, len(axs)):
-                fig.delaxes(axs[j])
-
-            fig.suptitle(f"Distribuição de Features Numéricas - {feature}: {coluna}", fontsize=16)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-            plt.show()
-
-        except Exception as e:
-            logger.error(f"Erro ao gerar gráfico: {e}")
-            print("Erro:", e)
