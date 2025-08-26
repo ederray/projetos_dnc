@@ -1,0 +1,28 @@
+ 1. Carregamento dos dados
+Import arquivos com pandas - ok
+Verificação com head - ok
+Junção dos datasets: merge - ok
+
+
+2. Limpeza e tratamento dos dados
+Verificação de nulos: isnull().sum() - ok
+Preenchimento de nulos: média, moda ou método - ok
+Remoção dados nulos: dropna() - ok
+
+3. Tratamento e Visualização de Outliers
+Identificação com boxplot
+Tratamento com IQR (% outliers)
+Remoção dos Outliers
+
+4. Transformação de dados categóricos
+Transformacao .astype('category').cat.codes
+
+5. Conferência e Insights
+Dataset pronto para modelagem
+Remoção de colunas redundantes
+Verificacao: head(), info(), describe(), columns
+Distribuição dos dados
+Exploração dos dados e testes de hipóteses
+correlação e multicolinearidade
+seleção/ recomendação de features
+Recomendações de tratamento para o pipeline

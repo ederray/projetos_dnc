@@ -1,12 +1,8 @@
 """Funções de tratamento dos dados"""
-from IPython.display import display
-from ipywidgets import interact, HTML, Output, Dropdown, VBox
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas import DataFrame, Series
-import sidetable
-import missingno as msno
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, PowerTransformer
 
@@ -26,20 +22,17 @@ def verificacao_nulos(df:DataFrame) -> Series:
     output = df.isna().sum()
     return output
 
-def filtrar_linhas_valores_nulos(df:DataFrame) -> pd.DataFrame:
+def filtrar_linhas_valores_nulos(df:DataFrame) -> DataFrame:
     """Função que aplica o filtro de valores nulos no dataframe e retorna um dataframe filtrado com a correspondência."""
     output = df[df.isna().any(axis=1)]
     logger.info(f"Contagem de linhas nulas para o dataframe:{output.shape[0]}")
     return output
 
-
-
-def frequencia_valores_nulos(df:DataFrame) -> pd.DataFrame:
+def frequencia_valores_nulos(df:DataFrame) -> DataFrame:
     """Função que gera uma matriz esparsa com a visualização dos valores nulos intercalado com valores preenchidos por coluna"""
     return df.stb.missing()
 
-def verificar_linhas_duplicadas(df:pd.DataFrame)->pd.DataFrame:
-
+def verificar_linhas_duplicadas(df:DataFrame)->DataFrame:
     """Função que retorna um dataframe contendo as linhas duplicadas do dataset inputado."""
     output = \
     (
@@ -58,7 +51,7 @@ def remover_duplicados(df: DataFrame, coluna: str) -> DataFrame:
     df.drop_duplicates(subset=[coluna], keep='first', inplace=True)
     return df
 
-def filtragem_iterativa_valores_catogoricos(df: DataFrame, coluna: str) -> DataFrame:
+def filtragem_interativa_valores_categoricos(df: DataFrame, coluna: str) -> DataFrame:
     """Função que aplica um filtro iterativo para selecionar os dados do dataset a partir dos valores da coluna selecionada."""
     
     lista = sorted(df[coluna].unique())
@@ -78,7 +71,7 @@ def filtrar_feature_valor_categorico(df: DataFrame, query:str) -> DataFrame:
 
 def imputar_dados_room_type_entire_home_apt(df: DataFrame):
     """Função para transformar e tratar os valores das colunas bathrooms, bedrooms e 
-    beds relacioanados ao filtro da coluna room_type=='Entire home/apt'."""
+    beds relacionados ao filtro da coluna room_type=='Entire home/apt'."""
 
     # filtra o dataset a partir dos valores da coluna room_type == 'Entire home/apt'
     df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Entire home/apt'")
@@ -97,7 +90,6 @@ def imputar_dados_room_type_entire_home_apt(df: DataFrame):
     df_filtrado.loc[df_filtrado['beds'].isna(),'beds'] = np.ceil(df_filtrado['accommodates'] / 2)
 
     return df_filtrado
-
 
 def imputar_dados_room_type_private_room(df: DataFrame):
     """Função para transformar e tratar os valores das colunas bathrooms, bedrooms e 
@@ -183,7 +175,7 @@ def selecao_colunas(df: DataFrame, colunas: list) -> DataFrame:
     return df[colunas]
 
 
-def agrupar_dados(df: pd.DataFrame, cols_agrup: list, cols_filter: list=None, agr=None) -> pd.DataFrame:
+def agrupar_dados(df: DataFrame, cols_agrup: list, cols_filter: list=None, agr=None) -> DataFrame:
     """Função que agrupa as colunas para montagem do dataset."""
     try:
         if not cols_filter:

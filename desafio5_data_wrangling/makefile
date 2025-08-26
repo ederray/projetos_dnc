@@ -39,17 +39,14 @@ format:
 	isort project_name
 	black project_name
 
-
-
-
-
-
-
 #################################################################################
 # PROJECT RULES                                                                 #
 #################################################################################
 
-
+## Process raw data into an interim format
+.PHONY: data
+data:
+	$(PYTHON_INTERPRETER) src/scripts/make_dataset.py --input_filepath data/raw --output_filepath data/interim
 
 #################################################################################
 # Self Documenting Commands                                                     #
