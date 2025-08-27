@@ -3,7 +3,6 @@ Import arquivos com pandas - ok
 Verificação com head - ok
 Junção dos datasets: merge - ok
 
-
 2. Limpeza e tratamento dos dados
 Verificação de nulos: isnull().sum() - ok
 Preenchimento de nulos: média, moda ou método - ok

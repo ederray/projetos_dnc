@@ -1,9 +1,12 @@
 """Funções de tratamento dos dados"""
 import logging
+from geopy.geocoders import Nominatim
+from geopy.extra.rate_limiter import RateLimiter
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas import DataFrame, Series
 import pandas as pd
+from ipywidgets import interact, HTML, Output, Dropdown, VBox
 from sklearn.preprocessing import StandardScaler, PowerTransformer
 
 # instância do objeto logger
@@ -68,6 +71,39 @@ def filtrar_feature_valor_categorico(df: DataFrame, query:str) -> DataFrame:
     except Exception as e:
         logger.error(e)
     return output
+
+def adicionar_geolocalizacao_por_lista_bairros(df: DataFrame,lista_bairros: list,nome_coluna_bairro_df: str) -> DataFrame:
+    """
+    Adiciona colunas de latitude e longitude a um DataFrame com base em uma lista de bairros.
+
+    Args:
+        df (DataFrame): O DataFrame original a ser modificado.
+        lista_bairros (list): Uma lista de strings com os bairros a serem geocodificados.
+        nome_coluna_bairro_df (str): O nome da coluna de bairros no DataFrame original.
+
+    Returns:
+        DataFrame: O DataFrame original com as novas colunas 'latitude' e 'longitude' adicionadas.
+    """
+    # construção de um df com dados de localização para simplificar a atualização do df transformado
+    df_geopy = pd.DataFrame(lista_bairros, columns=['Bairro'])
+    
+    # colunas necessárias pela lib geopy para instanciar os valores de geolocalizão
+    df_geopy['cidade_estado'] = 'Rio de Janeiro, RJ'
+    df_geopy['endereco_completo'] = df_geopy['Bairro'] + ', ' + df_geopy['cidade_estado']
+
+    # instância do objeto de geolocalização com limite de tempo
+    geolocator = Nominatim(user_agent="projeto_eda_airbnb", timeout=10)
+    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=2)
+
+    # aplica a função para encontrar os dados de latitude e longitude.
+    df_geopy['localizacao'] = df_geopy['endereco_completo'].apply(geocode)
+    df_geopy['latitude'] = df_geopy['localizacao'].apply(lambda loc: loc.latitude if loc else None)
+    df_geopy['longitude'] = df_geopy['localizacao'].apply(lambda loc: loc.longitude if loc else None)
+    
+    # junção do dataset com as colunas necessárias para retorno da função
+    df_final = pd.merge(df, df_geopy[['Bairro','latitude','longitude']], left_on=nome_coluna_bairro_df, right_on='Bairro', how='left').drop('Bairro',axis=1)
+        
+    return df_final
 
 def imputar_dados_room_type_entire_home_apt(df: DataFrame):
     """Função para transformar e tratar os valores das colunas bathrooms, bedrooms e 
@@ -169,6 +205,10 @@ def imputar_dados_price(df: DataFrame):
 
     return df_copia
 
+def substituir_valores(df: DataFrame, filtro_linhas:list, filtro_colunas:list, valor) -> DataFrame:
+    
+    df.loc[filtro_linhas, filtro_colunas] = valor
+    return df
 
 def selecao_colunas(df: DataFrame, colunas: list) -> DataFrame:
     """Função que seleciona as colunas para montagem do dataset"""
