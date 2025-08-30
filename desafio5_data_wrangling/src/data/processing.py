@@ -2,12 +2,14 @@
 import logging
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
+from scipy.stats import chisquare, shapiro, kstest, norm
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas import DataFrame, Series
 import pandas as pd
 from ipywidgets import interact, HTML, Output, Dropdown, VBox
-from sklearn.preprocessing import StandardScaler, PowerTransformer
+from sklearn.preprocessing import PowerTransformer
+from typing import Optional
 
 # instância do objeto logger
 logger = logging.getLogger(__name__)
@@ -35,12 +37,10 @@ def frequencia_valores_nulos(df:DataFrame) -> DataFrame:
     """Função que gera uma matriz esparsa com a visualização dos valores nulos intercalado com valores preenchidos por coluna"""
     return df.stb.missing()
 
-def verificar_linhas_duplicadas(df:DataFrame)->DataFrame:
+def verificar_linhas_duplicadas(df:DataFrame) -> DataFrame:
     """Função que retorna um dataframe contendo as linhas duplicadas do dataset inputado."""
     output = \
-    (
-    df
-    .groupby(df.columns.tolist(), dropna=False)
+    (df.groupby(df.columns.tolist(), dropna=False)
     .size()
     .to_frame('n_duplicates')
     .query('n_duplicates>1')
@@ -116,11 +116,8 @@ def imputar_dados_room_type_entire_home_apt(df: DataFrame):
     df_filtrado.loc[df_filtrado['bathrooms']<1,'bathrooms'] = 1
 
     # 'Entire home/apt' com bedrooms e beds menor que 1 provavelmente corresponde a um tipo de acomodação kitnet ou studio.
-    df_filtrado.loc[(df_filtrado['bedrooms'] < 1) | (df_filtrado['beds'] < 1),['bedrooms','beds']] = 0
-
-    # quantidade de banheiros e quartos vazios preenchidos com a moda de ocorrência dos valores
-    df_filtrado.loc[df_filtrado['bathrooms'].isna(),'bathrooms'] = df_filtrado['bathrooms'].mode()[0]
-    df_filtrado.loc[df_filtrado['bedrooms'].isna(),'bedrooms'] = df_filtrado['bedrooms'].mode()[0]
+    df_filtrado.loc[(df_filtrado['bedrooms'] < 1), 'bedrooms'] = 0
+    df_filtrado.loc[(df_filtrado['beds'] < 1), 'beds'] = 0
 
     # quatidade de camas definidas a partir de uma taxa de acomodações/2
     df_filtrado.loc[df_filtrado['beds'].isna(),'beds'] = np.ceil(df_filtrado['accommodates'] / 2)
@@ -136,14 +133,10 @@ def imputar_dados_room_type_private_room(df: DataFrame):
 
     # realiza o tratamento de valores a partir das regras definindas:
     # 'Private room' exige a presença de 1 quarto exclusivo
-    df_filtrado.loc[df_filtrado['bedrooms'].isna(),'bedrooms'] = 1
+    df_filtrado.loc[(df_filtrado['bedrooms'].isna()) | (df['bedrooms'] == 0),'bedrooms'] = 1
 
     # quatidade de camas definidas a partir de uma taxa de acomodações/2
-    df_filtrado.loc[df_filtrado['beds'].isna(),'beds'] = np.ceil(df_filtrado['accommodates'] / 2)
-
-    # quantidade de banheiros vazios preenchidos com a moda.
-    df_filtrado.loc[df_filtrado['bathrooms'].isna(),'bathrooms'] = df_filtrado['bathrooms'].mode()[0]
-
+    df_filtrado.loc[(df_filtrado['beds'].isna()) | (df['beds'] == 0),'beds'] = np.ceil(df_filtrado['accommodates'] / 2)
 
     return df_filtrado
 
@@ -155,7 +148,9 @@ def imputar_dados_room_type_shared_room(df: DataFrame):
     df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Shared room'")
 
     # 'Shared room' não exige a presença de 1 quarto ou banheiro exclusivos.
-    df_filtrado.loc[df_filtrado['bedrooms'].isna(),['bedrooms','bathrooms','beds']] = 0
+    df_filtrado.loc[df_filtrado['bedrooms'].isna(),['bedrooms']] = 0
+    df_filtrado.loc[df_filtrado['bathrooms'].isna(),['bathrooms']] = 0
+    df_filtrado.loc[df_filtrado['beds'].isna(),['beds']] = 0
 
     return df_filtrado
 
@@ -166,14 +161,9 @@ def imputar_dados_room_type_hotel_room(df: DataFrame):
     # filtra o dataset a partir dos valores da coluna room_type == 'Hotel room'
     df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Hotel room'")
 
-    # quantidade de quartos preenchidos com a moda
-    df_filtrado.loc[df_filtrado['bedrooms'].isna(),'bedrooms'] = df_filtrado['bedrooms'].mode()[0]
-
-    # quantidade de banheiros vazios preenchidos com a moda.
-    df_filtrado.loc[df_filtrado['bathrooms'].isna(),'bathrooms'] = df_filtrado['bathrooms'].mode()[0]
-
     # quantidade de banheiros menor que 1 preenchidos com valor 1, já que quarto de hotel tem banheiro.
     df_filtrado.loc[df_filtrado['bathrooms']<1,'bathrooms'] = 1
+    df_filtrado.loc[df_filtrado['bedrooms']<1,'bedrooms'] = 1
 
     # quatidade de camas definidas a partir de uma taxa de acomodações/2
     df_filtrado.loc[df_filtrado['beds'].isna(),'beds'] = np.ceil(df_filtrado['accommodates'] / 2)
@@ -206,7 +196,7 @@ def imputar_dados_price(df: DataFrame):
     return df_copia
 
 def substituir_valores(df: DataFrame, filtro_linhas:list, filtro_colunas:list, valor) -> DataFrame:
-    
+    """Função que subsitui os valores a partir dos filtros de linha ou coluna informados para o valor determinado."""
     df.loc[filtro_linhas, filtro_colunas] = valor
     return df
 
@@ -229,5 +219,128 @@ def agrupar_dados(df: DataFrame, cols_agrup: list, cols_filter: list=None, agr=N
         logger.error(e)
 
     return df
+
+def teste_qui_quadrado_normalidade(df:DataFrame, cat_col:str, num_cols:list, bins=10, alpha=0.05) -> DataFrame:
+    "Função que gera um dataset com a avaliação do teste qui quadrado das categorias da feature indicada."
+    results = []
+
+    for category in df[cat_col].unique():
+        df_category = df[df[cat_col] == category]
+        
+        for num_col in num_cols:
+            data = df_category[num_col].dropna()
+
+            if len(data) < bins:
+                continue
+
+            # padronizar
+            zscores = (data - data.mean()) / data.std()
+
+            # observado
+            obs, bin_edges = np.histogram(zscores, bins=bins)
+            
+            # esperado (usando normal padrão)
+            cdf_vals = norm.cdf(bin_edges)
+            expected_probs = np.diff(cdf_vals)
+            expected = expected_probs * len(zscores)
+
+            # teste qui-quadrado
+            chi2, p = chisquare(f_obs=obs, f_exp=expected)
+
+            results.append({
+                "Categoria": category,
+                "Coluna": num_col,
+                "Chi2": chi2,
+                "p-value": p,
+                "Normal?": "Sim" if p > alpha else "Não"
+            })
+
+    return pd.DataFrame(results)
+
+def teste_normalidade_por_categoria_auto(df:DataFrame, cat_col:str, num_cols:list, alpha=0.05) -> DataFrame:
+    """Função que aplica teste de normalidade para as categorias de uma coluna a partir da quantidade de amostra disponível e retorna um dataset com as análises."""
+    results = []
+
+    for category in df[cat_col].unique():
+        subset = df[df[cat_col] == category]
+
+        for num_col in num_cols:
+            data = subset[num_col].dropna().values
+            n = len(data)
+
+            if n < 3:  # amostra muito pequena
+                results.append({
+                    "Categoria": category,
+                    "Coluna": num_col,
+                    "N": n,
+                    "Teste": None,
+                    "Estatística": None,
+                    "p-value": None,
+                    "Normal?": "Amostra insuficiente"
+                })
+                continue
+
+            # escolha do teste
+            if n < 500:
+                test_name = "Shapiro-Wilk"
+                stat, p = shapiro(data)
+            else:
+                test_name = "Kolmogorov-Smirnov"
+                # padronizar antes de aplicar KS contra normal padrão
+                zscores = (data - np.mean(data)) / np.std(data, ddof=1)
+                stat, p = kstest(zscores, 'norm')
+
+            results.append({
+                "Categoria": category,
+                "Coluna": num_col,
+                "N": n,
+                "Teste": test_name,
+                "Estatística": stat,
+                "p-value": p,
+                "Normal?": "Sim" if p > alpha else "Não"
+            })
+
+    return pd.DataFrame(results)
+
+def verificacao_outlier(array, extreme = False):
+
+    "Função para verificar outliers em um array."
+    q1,q3 = np.quantile(array, [0.25, 0.75])
+    iqr = q3-q1
+
+    factor = 3 if extreme else 1.5
+    upper_outlier = q3+factor*iqr
+    lower_outlier = q1-factor*iqr
+
+    return (array < lower_outlier) | (array > upper_outlier)
+
+def power_transform_coluna_categorica(df: pd.DataFrame,cat_col: str,metodo: str = 'yeo-johnson', cols: Optional[list] = None) -> pd.DataFrame:
+    """
+    Aplica PowerTransformer (Box-Cox ou Yeo-Johnson) às colunas numéricas,
+    agrupando os dados por uma coluna categórica.
+
+    Args:
+        df (pd.DataFrame): DataFrame de entrada com colunas numéricas e categóricas.
+        cat_col (str): Nome da coluna categórica usada para agrupar.
+        metodo (str, optional): Método do PowerTransformer ('yeo-johnson' ou 'box-cox').
+        cols (list, optional): Lista de colunas numéricas a transformar. 
+                               Se None, aplica em todas as numéricas.
+
+    Returns:
+        pd.DataFrame: DataFrame com as colunas numéricas transformadas por grupo.
+    """
+    df = df.copy()
+    
+    # Seleção de colunas numéricas (caso o usuário não especifique)
+    if cols is None:
+        cols = df.select_dtypes(include='number').columns.tolist()
+
+    def _transform(group: pd.DataFrame) -> pd.DataFrame:
+        transformer = PowerTransformer(method=metodo, standardize=True)
+        group = group.copy()
+        group[cols] = transformer.fit_transform(group[cols])
+        return group
+
+    return df.groupby(cat_col, group_keys=False).apply(_transform)
 
 
