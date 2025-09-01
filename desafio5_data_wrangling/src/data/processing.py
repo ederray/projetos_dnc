@@ -3,11 +3,13 @@ import logging
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 from scipy.stats import chisquare, shapiro, kstest, norm
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas import DataFrame, Series
 import pandas as pd
-from ipywidgets import interact, HTML, Output, Dropdown, VBox
+from ipywidgets import interact, HTML, Output, Dropdown, VBox, interactive
+from IPython.display import display, HTML
 from sklearn.preprocessing import PowerTransformer
 from typing import Optional
 
@@ -335,7 +337,7 @@ def power_transform_coluna_categorica(df: pd.DataFrame,cat_col: str,metodo: str 
     if cols is None:
         cols = df.select_dtypes(include='number').columns.tolist()
 
-    def _transform(group: pd.DataFrame) -> pd.DataFrame:
+    def _transform(group: pd.DataFrame) -> DataFrame:
         transformer = PowerTransformer(method=metodo, standardize=True)
         group = group.copy()
         group[cols] = transformer.fit_transform(group[cols])
@@ -344,3 +346,75 @@ def power_transform_coluna_categorica(df: pd.DataFrame,cat_col: str,metodo: str 
     return df.groupby(cat_col, group_keys=False).apply(_transform)
 
 
+def analise_vif_interativo(df: pd.DataFrame, coluna: str):
+    """Função que realiza o teste VIF para as features da tabela a partir da coluna de filtro."""
+
+    lista = sorted(df[coluna].dropna().unique())
+
+    @interact(valor_selecionado=lista)
+    def executar_analise_vif(valor_selecionado):
+        # Filtra pelo valor selecionado
+        df_filtrado = df[df[coluna] == valor_selecionado].copy()
+
+        # Seleciona apenas features numéricas
+        features_num = df_filtrado.select_dtypes(include='number').columns
+        df_features = df_filtrado[features_num].dropna()
+
+        if df_features.shape[1] < 2:
+            display(HTML(f"<h3>Poucas features numéricas para {coluna}: {valor_selecionado}</h3>"))
+            return
+
+        # Função para calcular o VIF
+        def vif_calculator(df_to_vif):
+            vif_data = pd.DataFrame()
+            vif_data['Feature'] = df_to_vif.columns
+            vif_data['VIF'] = [
+                variance_inflation_factor(df_to_vif.values, i) 
+                for i in range(df_to_vif.shape[1])
+            ]
+            return vif_data.sort_values(by="VIF", ascending=False)
+
+        vif_resultado = vif_calculator(df_features)
+
+        # Exibe o resultado
+        display(HTML(f"<h3>Análise VIF para {coluna}: {valor_selecionado}</h3>"))
+        display(vif_resultado)
+
+def analise_vif_interativo_2(df: pd.DataFrame, coluna: str):
+    """Função que realiza o teste VIF para as features da tabela a partir da coluna de filtro."""
+
+    lista = sorted(df[coluna].dropna().unique())
+
+    @interact(valor_selecionado=lista)
+    def executar_analise_vif(valor_selecionado):
+        # Filtra pelo valor selecionado
+        df_filtrado = df[df[coluna] == valor_selecionado].copy()
+
+        # Seleciona apenas features numéricas
+        features_num = df_filtrado.select_dtypes(include='number').columns
+        df_features = df_filtrado[features_num].dropna()
+
+        # Remove colunas constantes (sem variação)
+        df_features = df_features.loc[:, df_features.nunique() > 1]
+
+        if df_features.shape[1] < 2:
+            display(HTML(f"<h3>Poucas features numéricas válidas para {coluna}: {valor_selecionado}</h3>"))
+            return
+
+        # Função para calcular o VIF
+        def vif_calculator(df_to_vif):
+            vif_data = pd.DataFrame()
+            vif_data['Feature'] = df_to_vif.columns
+            vif_data['VIF'] = [
+                variance_inflation_factor(df_to_vif.values, i) 
+                for i in range(df_to_vif.shape[1])
+            ]
+            # Substitui inf por NaN e remove linhas inválidas
+            vif_data = vif_data.replace([np.inf, -np.inf], np.nan).dropna()
+            return vif_data.sort_values(by="VIF", ascending=False)
+
+        vif_resultado = vif_calculator(df_features)
+
+        # Exibe o resultado
+        display(HTML(f"<h3>Análise VIF para {coluna}: {valor_selecionado}</h3>"))
+        display(vif_resultado)
