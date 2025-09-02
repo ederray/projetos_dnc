@@ -235,7 +235,7 @@ def grafico_heatmap_interativo(df:DataFrame, col_cat:str) -> plt.plot:
     def plot(coluna):
         try: 
             df_corr = df.query(f"{col_cat}=='{coluna}'").select_dtypes(include='number').corr()
-            plt.figure(figsize=(7,4))
+            plt.figure(figsize=(10,7))
             mask = np.triu(df_corr)
             sns.heatmap(df_corr,linewidths=0.5, cmap='vlag', mask = mask)
             return plt.show()
