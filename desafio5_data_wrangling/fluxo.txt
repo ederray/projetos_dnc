@@ -17,9 +17,9 @@ Remoção dos Outliers - ok
 Transformacao .astype('category').cat.codes
 
 5. Conferência e Insights
-Verificacao: head(), info(), describe(), columns
-Distribuição dos dados
-Exploração dos dados e testes de hipóteses
+Verificacao: head(), info(), describe(), columns - ok
+Distribuição dos dados - ok
+Exploração dos dados e testes de hipóteses - em andmento
 correlação e multicolinearidade - ok
 seleção/ recomendação de features
 Remoção de colunas redundantes

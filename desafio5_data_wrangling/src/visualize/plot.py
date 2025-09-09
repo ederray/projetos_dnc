@@ -5,8 +5,8 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from pandas import DataFrame
-import sidetable
 import missingno as msno
+import sidetable as stb
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, PowerTransformer, RobustScaler
 import seaborn as sns
@@ -71,40 +71,6 @@ def grafico_boxplot(df: pd.DataFrame) -> plt.plot:
     plt.title(f"Análise Descritiva features numéricas")
     plt.tight_layout()
     return plt.show()
-
-def grafico_boxplot_feature_interativo(df: pd.DataFrame, feature: str):
-    """
-    Exibe um boxplot interativo para todas as colunas numéricas dos registros 
-    filtrados por uma feature categórica.
-
-    Args:
-        df (pd.DataFrame): DataFrame com os dados.
-        feature (str): Coluna categórica usada para filtrar os dados (ex: 'room_type').
-    """
-    opcoes = sorted(df[feature].dropna().unique())
-
-    @interact(coluna=opcoes)
-    def plot(coluna):
-        try:
-            # 1. Filtra os dados
-            dados_filtrados = df[df[feature] == coluna]
-            dados_numericos = dados_filtrados.select_dtypes(include='number')
-
-            if dados_numericos.empty:
-                raise ValueError("Nenhum dado numérico disponível para esta categoria.")
-      
-            # 3. Gera um único boxplot com todas as colunas
-            plt.figure(figsize=(14, 10))
-            sns.boxplot(data=dados_numericos)
-
-            # 4. Ajusta o layout do gráfico
-            plt.xticks(rotation=60)
-            plt.title(f"Distribuição de Features Numéricas para '{coluna}'")
-            plt.tight_layout()
-            plt.show()
-
-        except Exception as e:
-            print(f"Erro ao gerar gráfico: {e}")
 
 def grafico_multi_boxplot(df: pd.DataFrame, cat_col: str) -> None:
     """
