@@ -11,6 +11,8 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler, RobustScaler
 import seaborn as sns
 from scipy import stats
+import plotly.express as px
+from typing import Dict, Any
 
 # instância do objeto logger
 logger = logging.getLogger(__name__)
@@ -24,7 +26,6 @@ def matriz_valores_nulos(df:DataFrame)-> plt.plot:
     
     except Exception as e:
         logger.error(f"Erro: {e}")
-
 
 def grafico_qq_plot(df: pd.DataFrame, interativo: bool = False, col_cat: str = None):
     """
@@ -63,7 +64,6 @@ def grafico_qq_plot(df: pd.DataFrame, interativo: bool = False, col_cat: str = N
 
     except Exception as e:
         logger.error(f"Erro: {e}")
-
 
 def grafico_boxplot(df: pd.DataFrame, interativo:bool=None, cat_col: str=None) -> plt.plot:
     """
@@ -125,7 +125,6 @@ def grafico_boxplot(df: pd.DataFrame, interativo:bool=None, cat_col: str=None) -
     except Exception as e:
         logger.error(f"Erro: {e}")
 
-
 def boxplot_comparativo_escalonamento_dados(df: pd.DataFrame, scale:str='StandardScaler') -> plt.plot:
     "Função que retorna um gráfico comparativo entre os dados com e sem escalonamento."
     
@@ -154,7 +153,8 @@ def boxplot_comparativo_escalonamento_dados(df: pd.DataFrame, scale:str='Standar
     except Exception as e:
         return logger.error(e)
 
-def grafico_dispersao(df: DataFrame, y:Series, x:Series, titulo:str, xlabel:str, ylabel:str, interativo:bool=None, feature:str = None, res:bool=None, valor_dispersao:Series=None) -> plt.plot:
+def grafico_dispersao(df: DataFrame, y:Series, x:Series, titulo:str, xlabel:str, ylabel:str, interativo:bool=None, feature:str = None, res:bool=None, 
+                      hue:Series=None, size:Series=None) -> plt.plot:
     """
     Gera um gráfico de dispersão.
     - interativo=True: adiciona um seletor interativo para filtrar pela coluna `feature`.
@@ -167,7 +167,7 @@ def grafico_dispersao(df: DataFrame, y:Series, x:Series, titulo:str, xlabel:str,
                 plot_df = plot_df[plot_df[feature] == valor_feature]
             
             plt.figure(figsize=(10,5))
-            sns.scatterplot(data=plot_df, x=x, y=y, hue=valor_dispersao)
+            sns.scatterplot(data=plot_df, x=x, y=y, hue=hue, size=size, legend="full")
             if res:
                 plt.axhline(y=0, color='red', linestyle='--', linewidth=2)
                 plt.xlim(-5,5)
@@ -217,7 +217,6 @@ def grafico_histograma(df: pd.DataFrame, interativo: bool = False, feature: str 
             plot(df[df[feature] == filtro], f"- {feature}: {filtro}")
     else:
         plot(df)
-
 
 def grafico_heatmap(df: pd.DataFrame, interativo: bool = False, col_cat: str = None):
     """
@@ -278,3 +277,54 @@ def grafico_coluna(df, x_col, y_col, hue_col=None, title=None):
     plt.xticks(rotation=45, ha='right') # Rotaciona os rótulos do eixo X para melhor visualização
     plt.tight_layout() # Ajusta o layout para evitar sobreposições
     plt.show()
+
+def gerar_mapa_scatter_plot(
+    df: pd.DataFrame,
+        lat_col: str,
+        lon_col: str,
+        color_col: str,
+        size_col: str,
+        hover_name_col: str,
+        hover_data_dict: Dict[str, Any],
+        center: Dict[str, float] = None,
+        zoom: int = 9,
+        title: str = "Mapa de Dispersão",
+        jitter_amount: float = 0.005
+    ):
+        """
+        params:
+            df (pd.DataFrame): O DataFrame a ser usado.
+            lat_col (str): Nome da coluna para a latitude.
+            lon_col (str): Nome da coluna para a longitude.
+            color_col (str): Nome da coluna para a cor dos pontos.
+            size_col (str): Nome da coluna para o tamanho dos pontos.
+            hover_name_col (str): Nome da coluna para o nome ao passar o mouse.
+            hover_data_dict (Dict[str, Any]): Dicionário com dados adicionais para o tooltip.
+            zoom (int): Nível de zoom do mapa.
+            center_lat (float): Latitude do centro do mapa.
+            center_lon (float): Longitude do centro do mapa.
+            title (str): Título do mapa.
+            jitter_amount (float): Quantidade de jitter a ser adicionada para evitar sobreposição.
+        """
+        # Adiciona jitter às coordenadas para evitar sobreposição
+        df_temp = df.copy()
+        df_temp[f'{lat_col}_jittered'] = df_temp[lat_col] + np.random.uniform(-jitter_amount, jitter_amount, size=len(df_temp))
+        df_temp[f'{lon_col}_jittered'] = df_temp[lon_col] + np.random.uniform(-jitter_amount, jitter_amount, size=len(df_temp))
+
+        fig = px.scatter_map(
+            df_temp,
+            lat=f'{lat_col}_jittered',
+            lon=f'{lon_col}_jittered',
+            color=color_col,
+            size=size_col,
+            hover_name=hover_name_col,
+            hover_data=hover_data_dict,
+            zoom=zoom,
+            center=center,
+            title=title
+        )
+        
+        # Define o estilo de mapa padrão
+        fig.update_layout(mapbox_style="carto-positron")
+        
+        fig.show()

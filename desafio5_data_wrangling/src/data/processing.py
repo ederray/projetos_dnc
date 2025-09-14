@@ -9,6 +9,9 @@ import pandas as pd
 from ipywidgets import interact
 from sklearn.preprocessing import PowerTransformer
 from typing import Dict, Tuple, Optional
+import unicodedata
+import re
+
 
 # instância do objeto logger
 logger = logging.getLogger(__name__)
@@ -132,13 +135,43 @@ def adicionar_informacoes_geograficas(
     # =========================
     if zonas_rj is None:
         zonas_rj = {
-            "Zona Sul": ["Botafogo", "Catete", "Copacabana", "Cosme Velho", "Flamengo", "Gávea", "Humaitá",
-                         "Ipanema", "Jardim Botânico", "Lagoa", "Laranjeiras", "Leblon", "Leme", "Rocinha",
-                         "São Conrado", "Urca", "Vidigal"],
-            "Zona Norte": ["Tijuca", "Vila Isabel", "Méier", "Madureira"],  # simplificado
-            "Zona Oeste": ["Bangu", "Barra da Tijuca", "Campo Grande", "Recreio dos Bandeirantes"],
-            "Centro": ["Centro", "Lapa", "Glória", "Santa Teresa"],
-        }
+    "Zona Sul": [
+        "Botafogo", "Catete", "Copacabana", "Cosme Velho", "Flamengo", "Gávea", "Glória",
+        "Humaitá", "Ipanema", "Jardim Botânico", "Lagoa", "Laranjeiras", "Leblon", "Leme",
+        "Rocinha", "São Conrado", "Urca", "Vidigal"
+    ],
+    "Zona Norte": [
+        "Acari", "Abolição", "Água Santa", "Alto da Boa Vista", "Anchieta", "Andaraí",
+        "Bancários", "Barros Filho", "Bento Ribeiro", "Bonsucesso", "Brás de Pina",
+        "Cachambi", "Cacuia", "Campinho", "Cascadura", "Cavalcanti",
+        "Cidade Universitária", "Cocotá", "Coelho Neto", "Colégio", "Complexo do Alemão",
+        "Cordovil", "Costa Barros", "Del Castilho", "Encantado", "Engenheiro Leal",
+        "Engenho da Rainha", "Engenho de Dentro", "Engenho Novo", "Freguesia","Freguesia (Ilha)", "Galeão",
+        "Grajaú", "Guadalupe", "Higienópolis", "Honório Gurgel", "Irajá",
+        "Inhaúma", "Jacaré", "Jacarezinho", "Jardim América", "Jardim Carioca",
+        "Jardim Guanabara", "Lins de Vasconcelos", "Madureira", "Manguinhos", "Maracanã",
+        "Maré", "Marechal Hermes", "Maria da Graça", "Méier", "Moneró", "Olaria", "Oswaldo Cruz",
+        "Osvaldo Cruz","Parada de Lucas", "Parque Anchieta", "Parque Colúmbia", "Pavuna", "Penha",
+        "Penha Circular", "Piedade", "Pilares", "Pitangueiras", "Portuguesa",
+        "Praia da Bandeira","Praça da Bandeira", "Quintino Bocaiúva", "Ramos", "Riachuelo", "Ribeira",
+        "Ricardo de Albuquerque","Rocha", "Rocha Miranda", "Sampaio", "São Francisco Xavier", "Todos os Santos",
+        "Tauá", "Tomás Coelho", "Tijuca","Turiaçú", "Vaz Lobo", "Vicente de Carvalho",
+        "Vigário Geral", "Vista Alegre", "Vila da Penha", "Vila Isabel", "Vila Kosmos", "Zumbi"
+    ],
+    "Zona Oeste": [
+        "Anil", "Barra da Tijuca", "Camorim", "Campo Grande","Cidade de Deus", "Curicica", "Freguesia de Jacarepaguá","Freguesia (Jacarepaguá)",
+        "Gardênia Azul", "Grumari", "Itanhangá", "Jacarepaguá", "Joá", "Pechincha", "Praça Seca",
+        "Rio das Pedras", "Recreio dos Bandeirantes", "Tanque", "Taquara", "Vargem Grande", "Vargem Pequena",
+        "Vila Valqueire", "Jardim Sulacap", "Bangu", "Campo dos Afonsos", "Deodoro", "Padre Miguel",
+        "Realengo", "Santíssimo", "Senador Camará","Senador Vasconcelos","Sepetiba", "Vila Kennedy", "Vila Militar", "Barra de Guaratiba",
+        "Gericinó","Guaratiba", "Inhoaíba", "Paciência", "Pedra de Guaratiba", "Santa Cruz", "Cosmos"
+    ],
+    "Centro": [
+        "Benfica", "Bento Ribeiro", "Catumbi", "Caju", "Centro", "Cidade Nova", "Estácio", "Gamboa",
+        "Glória", "Lapa", "Mangueira", "Paquetá", "Rio Comprido", "Santa Teresa", "Santo Cristo",
+        "Saúde", "São Cristóvão", "Vasco da Gama"
+    ]
+}
 
     if pontos_transporte is None:
         pontos_transporte = {
@@ -157,9 +190,11 @@ def adicionar_informacoes_geograficas(
             'Pão_de_Açúcar': (-22.9519, -43.1593),
             'Cristo_Redentor': (-22.9519, -43.2104),
             'Praia_de_Copacabana': (-22.9712, -43.1852),
+            'Arcos_da_Lapa': (-22.9128, -43.1799),
+            'Museu_do_Amanha': (-22.8940,-43.1794),
             'Maracanã': (-22.9121, -43.2302),
             'Jardim_Botânico': (-22.9691, -43.2259),
-            'Sapucaí_(Sambódromo)': (-22.9070, -43.1947),
+            'Sapucaí (Sambódromo)': (-22.9070, -43.1947),
             'Estádio_Nilton_Santos': (-22.8931, -43.2905),   
         }
 
@@ -221,19 +256,26 @@ def adicionar_informacoes_geograficas(
 
     return df
 
-def criar_flags_proximidade(df: pd.DataFrame) -> pd.DataFrame:
+def criar_flags_proximidade(df: DataFrame) -> DataFrame:
     """
     Cria colunas de flag binárias (0 ou 1) para indicar proximidade a pontos de interesse,
-    com base em regras pré-definidas e com uma nomenclatura de coluna personalizada.
+    comparando nomes de colunas de forma mais tolerante (sem acentos, case-insensitive).
     
-    Args:
+    params:
         df (pd.DataFrame): O DataFrame original com as colunas de distância em km.
-
-    Returns:
+        
+    return:
         pd.DataFrame: O DataFrame com as novas colunas de flag adicionadas.
     """
-    df_com_flags = df.copy()
 
+    def normalizar_texto(texto: str) -> str:
+        # remove acentos, converte para ascii, substitui não alfanumérico por _
+        texto = unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode('utf-8')
+        texto = re.sub(r'[^0-9a-zA-Z_]+', '_', texto)
+        return texto.lower().strip('_')
+    
+    df_com_flags = df.copy()
+    
     # Dicionário com as regras de proximidade fornecidas
     limites_proximidade = {
         'Aeroporto_Santos_Dumont': 10,
@@ -241,38 +283,41 @@ def criar_flags_proximidade(df: pd.DataFrame) -> pd.DataFrame:
         'Pão de Açúcar': 5,
         'Cristo Redentor': 5,
         'Praia de Copacabana': 5,
-        'Maracanã': 10,
+        'Maracanã': 5,
+        'Arcos da Lapa': 5,
+        'Museu do Amanhã': 5,
         'Jardim Botânico': 5,
-        'Sapucaí (Sambódromo)': 10,
+        'Sapucaí (Sambódromo)': 5,
         'Estádio Nilton Santos': 10,
-        'Estacao_Central_do_Brasil': 10,
-        'Estação_Cinelândia':5,
-        'Estação_Jardim_Oceânico': 5,
-        'Estação_Botafogo': 5,
-        'Estação_Maracanã': 5,
-        'Estação_Pavuna': 5
+        'Estacao Central do Brasil': 10,
+        'Estação Cinelândia': 5,
+        'Estação Jardim Oceânico': 5,
+        'Estação Botafogo': 5,
+        'Estação Maracanã': 5,
+        'Estação Pavuna': 5
     }
     
+    # normaliza colunas existentes do df uma vez
+    colunas_normalizadas = {normalizar_texto(c): c for c in df_com_flags.columns}
+
     for ponto, limite in limites_proximidade.items():
-        # Trata o nome do ponto para remover caracteres especiais, caso existam
-        ponto_formatado = ponto.replace('Ã£', 'ã').replace('Ã§', 'ç').replace('Ã³', 'ó')
+        nome_normalizado = normalizar_texto(f"dist_{ponto}_km")
         
-        # Constrói o nome da coluna de distância original
-        coluna_dist = f"Dist_{ponto_formatado.replace(' ', '_')}_km"
-        
-        # Constrói o novo nome da coluna de flag, seguindo o padrão que você pediu
-        nome_local = ponto_formatado.replace(' ', '_')
-        coluna_flag = f"Fl_lteq_{limite}_km_{nome_local}"
-        
-        if coluna_dist in df_com_flags.columns:
-            df_com_flags[coluna_flag] = df_com_flags[coluna_dist].apply(
+        if nome_normalizado in colunas_normalizadas:
+            col_df = colunas_normalizadas[nome_normalizado]
+            
+            nome_local_flag = normalizar_texto(ponto)
+            coluna_flag = f"fl_lteq_{limite}_km_{nome_local_flag}"
+            
+            df_com_flags[coluna_flag] = df_com_flags[col_df].apply(
                 lambda x: 1 if pd.notna(x) and x <= limite else 0
             )
-            print(f"Coluna '{coluna_flag}' criada com sucesso.")
+            print(f"Coluna '{coluna_flag}' criada com sucesso a partir de '{col_df}'.")
         else:
-            print(f"Aviso: Coluna de distância '{coluna_dist}' não encontrada. A flag não será criada.")
-            
+            print(f"Aviso: Coluna de distância para '{ponto}' não encontrada. A flag não será criada.")
+    
     return df_com_flags
+
 
 def imputar_dados_room_type_entire_home_apt(df: DataFrame):
     """Função para transformar e tratar os valores das colunas bathrooms, bedrooms e 
