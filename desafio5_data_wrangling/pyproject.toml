@@ -4,8 +4,8 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "airbnb_rj"
-version = "0.0.1"
-description = "A short description of the project."
+version = "1.0.0"
+description = "Projeto de Análise Exploratória de Dados do Airbnb do Rio de Janeiro."
 authors = [
   { name = "Eder Ray da Silva Francisco" },
 ]
@@ -15,11 +15,8 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License"
 ]
+
 dependencies = [
-    "black (==25.1.0)",
-    "flake8",
-    "isort",
-    "pip",
     "python-dotenv",
     "pandas (>=2.3.1,<3.0.0)",
     "statsmodels (>=0.14.5,<0.15.0)",
@@ -37,9 +34,15 @@ dependencies = [
     "ipykernel (>=6.30.1,<7.0.0)",
     "notebook (>=7.4.5,<8.0.0)",
     "plotly (>=6.3.0,<7.0.0)",
-    
 ]
 requires-python = "~=3.11.0"
+
+[project.optional-dependencies]
+dev = [
+    "black (==25.1.0)",
+    "flake8 (==6.1.0)",
+    "isort (==5.12.0)",
+]
 
 [tool.black]
 line-length = 99
@@ -53,7 +56,14 @@ exclude = '''
 
 [tool.isort]
 profile = "black"
-known_first_party = ["project_name"]
 force_sort_within_sections = true
+known_first_party = ["airbnb_rj"]
 
-
+[tool.flake8]
+max-line-length = 99
+extend-ignore = "E203, W503"
+exclude = [
+    ".venv",
+    ".git",
+    "__pycache__",
+]

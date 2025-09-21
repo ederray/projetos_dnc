@@ -13,9 +13,13 @@ import seaborn as sns
 from scipy import stats
 import plotly.express as px
 from typing import Dict, Any
+import statsmodels.stats.multicomp as mc
+sns.set_style("darkgrid")
+
 
 # instância do objeto logger
 logger = logging.getLogger(__name__)
+
 
 def matriz_valores_nulos(df:DataFrame)-> plt.plot:
     """Função que gera uma matriz esparsa com a visualização dos valores nulos intercalado com valores preenchidos por coluna"""
@@ -26,6 +30,7 @@ def matriz_valores_nulos(df:DataFrame)-> plt.plot:
     
     except Exception as e:
         logger.error(f"Erro: {e}")
+
 
 def grafico_qq_plot(df: pd.DataFrame, interativo: bool = False, col_cat: str = None):
     """
@@ -64,6 +69,7 @@ def grafico_qq_plot(df: pd.DataFrame, interativo: bool = False, col_cat: str = N
 
     except Exception as e:
         logger.error(f"Erro: {e}")
+
 
 def grafico_boxplot(df: pd.DataFrame, interativo:bool=None, cat_col: str=None) -> plt.plot:
     """
@@ -125,6 +131,7 @@ def grafico_boxplot(df: pd.DataFrame, interativo:bool=None, cat_col: str=None) -
     except Exception as e:
         logger.error(f"Erro: {e}")
 
+
 def boxplot_comparativo_escalonamento_dados(df: pd.DataFrame, scale:str='StandardScaler') -> plt.plot:
     "Função que retorna um gráfico comparativo entre os dados com e sem escalonamento."
     
@@ -153,7 +160,8 @@ def boxplot_comparativo_escalonamento_dados(df: pd.DataFrame, scale:str='Standar
     except Exception as e:
         return logger.error(e)
 
-def boxplot_comparativo_escalonamento_entre_dfs(df1: DataFrame, cols_df1: list, df2: DataFrame, cols_df2: list, title1: str, title2: str) -> None:
+
+def boxplot_comparativo_escalonamento_entre_dfs(df1: DataFrame, cols_df1: list, df2: DataFrame, cols_df2: list, title1: str, title2: str, scale: str = 'StandardScaler') -> plt.plot:
     """
     Escalona e compara dois DataFrames usando box plots.
 
@@ -164,17 +172,35 @@ def boxplot_comparativo_escalonamento_entre_dfs(df1: DataFrame, cols_df1: list, 
         cols_df2 (list): Uma lista de colunas do df2 a serem escalonadas e plotadas.
         title1 (str): O título para o primeiro gráfico.
         title2 (str): O título para o segundo gráfico.
+        scale (str): O método de escalonamento a ser usado ('StandardScaler' ou 'RobustScaler').
 
     return:
-        None: Exibe o gráfico.
+        plt.plot: Exibe o gráfico.
     """
     try:
+        if scale == 'StandardScaler':
+            scaler = StandardScaler()
+        elif scale == 'RobustScaler':
+            scaler = RobustScaler()
+        else:
+            raise ValueError("Método de escalonamento inválido. Use 'StandardScaler' ou 'RobustScaler'.")
+        
+        logger.info(f"Método de escalonamento: {scale}")
+
+        # Escalonar os dados do primeiro DataFrame
+        df1_features = df1[cols_df1]
+        df1_scaled = pd.DataFrame(scaler.fit_transform(df1_features), columns=df1_features.columns)
+
+        # Escalonar os dados do segundo DataFrame
+        df2_features = df2[cols_df2]
+        df2_scaled = pd.DataFrame(scaler.fit_transform(df2_features), columns=df2_features.columns)
+
         # Criar a figura com dois subplots lado a lado
         fig, axs = plt.subplots(ncols=2, figsize=(20, 8))
 
         # Plotar os box plots nos respectivos subplots
-        df1[cols_df1].plot.box(ax=axs[0], title=title1)
-        df2[cols_df2].plot.box(ax=axs[1], title=title2)
+        df1_scaled.plot.box(ax=axs[0], title=title1)
+        df2_scaled.plot.box(ax=axs[1], title=title2)
 
         # Ajustar automaticamente os rótulos do eixo x
         fig.autofmt_xdate(rotation=60, ha='right')
@@ -184,7 +210,7 @@ def boxplot_comparativo_escalonamento_entre_dfs(df1: DataFrame, cols_df1: list, 
     
     except Exception as e:
         logger.error(e)
-        
+
 
 def grafico_dispersao(df: DataFrame, y:Series, x:Series, titulo:str, xlabel:str, ylabel:str, interativo:bool=None, feature:str = None, res:bool=None, 
                       hue:Series=None, size:Series=None) -> plt.plot:
@@ -222,6 +248,20 @@ def grafico_dispersao(df: DataFrame, y:Series, x:Series, titulo:str, xlabel:str,
     except Exception as e:
         return logger.error(e)
 
+
+def grafico_pairplot_target(df:DataFrame, target:str, lista_features:list[str]) -> plt.plot:
+       """Função que retorna um gráfico pairplot das variáveis numéricas correlacionadas com o target indicado.
+       
+       :params df: Dataframe
+       :params target: feature alvo da previsão.
+       :params lista_features: lista de features para avaliar a correlação dos dados com o target.
+
+       """
+       ax = sns.pairplot(data=df, y_vars=target, x_vars=lista_features)
+       ax.figure.suptitle('Gráfico de dispersão das variáveis', y=1.05)
+       return plt.show()
+
+
 def grafico_histograma(df: pd.DataFrame, interativo: bool = False, feature: str = None):
     """
     Exibe histogramas das colunas numéricas.
@@ -251,6 +291,7 @@ def grafico_histograma(df: pd.DataFrame, interativo: bool = False, feature: str 
     else:
         plot(df)
 
+
 def grafico_heatmap(df: pd.DataFrame, interativo: bool = False, col_cat: str = None):
     """
     Cria heatmap de correlação dos dados numéricos.
@@ -275,6 +316,26 @@ def grafico_heatmap(df: pd.DataFrame, interativo: bool = False, col_cat: str = N
 
     except Exception as e:
         logger.error(f"Erro: {e}")
+
+
+def grafico_pairplot_target(df:DataFrame, target:str, lista_features:list[str], tipo:str='reg') -> plt.plot:
+       """Função que retorna um gráfico pairplot das variáveis numéricas correlacionadas com o target indicado.
+       :params df: Dataframe
+       :params target: feature alvo da previsão.
+       :params lista_features: lista de features para avaliar a correlação dos dados com o target.
+       """
+       try:
+            if tipo=='reg':
+                dict_line ={'line_kws':{'color':'red'}}   
+            else:
+                dict_line=None 
+
+            ax = sns.pairplot(data=df, y_vars=target, x_vars=lista_features, kind=tipo, plot_kws=dict_line)
+            ax.figure.suptitle('Gráfico de dispersão das variáveis', y=1.05)
+            return plt.show()
+       except Exception as e:
+           logger.error(e)
+
 
 def grafico_coluna(df, x_col, y_col, hue_col=None, title=None):
     """
@@ -311,16 +372,18 @@ def grafico_coluna(df, x_col, y_col, hue_col=None, title=None):
     plt.tight_layout() # Ajusta o layout para evitar sobreposições
     plt.show()
 
+
 def gerar_mapa_scatter_plot(
     df: pd.DataFrame,
         lat_col: str,
         lon_col: str,
-        color_col: str,
-        size_col: str,
-        hover_name_col: str,
-        hover_data_dict: Dict[str, Any],
+        color_col: str=None,
+        size_col: str=None,
+        hover_name_col: str=None,
+        hover_data_dict: Dict[str, Any]=None,
         center: Dict[str, float] = None,
-        zoom: int = 9,
+        zoom: int = 1,
+        height:int=None,
         title: str = "Mapa de Dispersão",
         jitter_amount: float = 0.005
     ):
@@ -354,6 +417,7 @@ def gerar_mapa_scatter_plot(
             hover_data=hover_data_dict,
             zoom=zoom,
             center=center,
+            height=height,
             title=title
         )
         
@@ -361,6 +425,7 @@ def gerar_mapa_scatter_plot(
         fig.update_layout(mapbox_style="carto-positron")
         
         fig.show()
+
 
 def grafico_replot(df:DataFrame, x:str, y:str, col_div:str, linha_div:str,  hue:str, tipo:str='scatter', figsize:tuple=(12,8), titulo:str=None) -> None:
 
@@ -376,30 +441,6 @@ def grafico_replot(df:DataFrame, x:str, y:str, col_div:str, linha_div:str,  hue:
         
     if titulo:
         g.fig.suptitle(titulo,fontsize=16,fontweight='bold')
-        g.fig.subplots_adjust(top=0.9)
-
-    plt.show()
-
-def grafico_catplot(df: DataFrame, x: str, y: str, col_div: str = None, linha_div: str = None, hue: str = None, tipo: str = 'box', titulo: str = None) -> None:
-    """
-    Cria um gráfico de categoria (catplot) com divisões de colunas e linhas.
-
-    Retorna:
-        None
-    """
-
-    g = sns.catplot(
-        data=df,
-        x=x,
-        y=y,
-        col=col_div,
-        row=linha_div,
-        hue=hue,
-        kind=tipo
-    )
-
-    if titulo:
-        g.fig.suptitle(titulo, fontsize=16, fontweight='bold')
         g.fig.subplots_adjust(top=0.9)
 
     plt.show()

@@ -1,4 +1,4 @@
-"""Funções de tratamento dos dados"""
+"""Funções de utilitárias de manipulação dos dados"""
 import logging
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
@@ -16,45 +16,6 @@ import re
 # instância do objeto logger
 logger = logging.getLogger(__name__)
 
-def amostra_dados(df: DataFrame) -> DataFrame:
-    """Função para retornar a amostragem dos dados"""
-    return df.sample(3)
-
-def contagem_valores(coluna:Series) -> None: 
-    """Função que realiza a contagem de valores por coluna"""
-    return coluna.value_counts()
-
-def verificacao_nulos(df:DataFrame) -> Series:
-    """Função que realiza a contagem de valores nulos por feature do dataset"""
-    output = df.isna().sum()
-    return output
-
-def filtrar_linhas_valores_nulos(df:DataFrame) -> DataFrame:
-    """Função que aplica o filtro de valores nulos no dataframe e retorna um dataframe filtrado com a correspondência."""
-    output = df[df.isna().any(axis=1)]
-    logger.info(f"Contagem de linhas nulas para o dataframe:{output.shape[0]}")
-    return output
-
-def frequencia_valores_nulos(df:DataFrame) -> DataFrame:
-    """Função que gera uma matriz esparsa com a visualização dos valores nulos intercalado com valores preenchidos por coluna"""
-    return df.stb.missing()
-
-def verificar_linhas_duplicadas(df:DataFrame) -> DataFrame:
-    """Função que retorna um dataframe contendo as linhas duplicadas do dataset inputado."""
-    output = \
-    (df.groupby(df.columns.tolist(), dropna=False)
-    .size()
-    .to_frame('n_duplicates')
-    .query('n_duplicates>1')
-    .sort_values('n_duplicates', ascending=False)
-    .head(5)
-    )
-    return output
-
-def remover_duplicados(df: DataFrame, coluna: str) -> DataFrame:
-    """Função para remoção de valores duplicados."""
-    df.drop_duplicates(subset=[coluna], keep='first', inplace=True)
-    return df
 
 def filtragem_interativa_valores_categoricos(df: DataFrame, coluna: str) -> DataFrame:
     """Função que aplica um filtro iterativo para selecionar os dados do dataset a partir dos valores da coluna selecionada."""
@@ -66,8 +27,9 @@ def filtragem_interativa_valores_categoricos(df: DataFrame, coluna: str) -> Data
 
         return filtro
 
-def filtrar_feature_valor_categorico(df: DataFrame, query:str) -> DataFrame:
+def filtrar_dataset(df: DataFrame, query:str) -> DataFrame:
     """Função que aplica um filtro em uma variável categorica ou em um conjunto delas através do método df.query"""
+    output = None 
     try:
         output = df.query(query)
     except Exception as e:
@@ -95,7 +57,7 @@ def adicionar_geolocalizacao_por_lista_bairros(df: DataFrame,lista_bairros: list
 
     # instância do objeto de geolocalização com limite de tempo
     geolocator = Nominatim(user_agent="projeto_eda_airbnb", timeout=10)
-    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=0.5)
+    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=0.4)
 
     # aplica a função para encontrar os dados de latitude e longitude.
     df_geopy['localizacao'] = df_geopy['endereco_completo'].apply(geocode)
@@ -219,7 +181,7 @@ def adicionar_informacoes_geograficas(
     enderecos = [f"{bairro}, Rio de Janeiro, RJ" for bairro in bairros_unicos]
 
     geolocator = Nominatim(user_agent=user_agent, timeout=10)
-    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=0.5)
+    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=0.4)
 
     mapa_coordenadas = {}
     for bairro, endereco in zip(bairros_unicos, enderecos):
@@ -324,7 +286,7 @@ def imputar_dados_room_type_entire_home_apt(df: DataFrame):
     beds relacionados ao filtro da coluna room_type=='Entire home/apt'."""
 
     # filtra o dataset a partir dos valores da coluna room_type == 'Entire home/apt'
-    df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Entire home/apt'")
+    df_filtrado = filtrar_dataset(df, query="room_type=='Entire home/apt'")
 
     # 'Entire home/apt' exige a presença de 1 banheiro na residência por legislação.
     df_filtrado.loc[df_filtrado['bathrooms']<1,'bathrooms'] = 1
@@ -343,7 +305,7 @@ def imputar_dados_room_type_private_room(df: DataFrame):
     beds relacioanados ao filtro da coluna room_type=='Private room'."""
 
     # filtra o dataset a partir dos valores da coluna room_type == 'Private room'
-    df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Private room'")
+    df_filtrado = filtrar_dataset(df, query="room_type=='Private room'")
 
     # realiza o tratamento de valores a partir das regras definindas:
     # 'Private room' exige a presença de 1 quarto exclusivo
@@ -359,7 +321,7 @@ def imputar_dados_room_type_shared_room(df: DataFrame):
     beds relacioanados ao filtro da coluna room_type=='Shared room'."""
 
     # filtra o dataset a partir dos valores da coluna room_type == 'Shared room'
-    df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Shared room'")
+    df_filtrado = filtrar_dataset(df, query="room_type=='Shared room'")
 
     # 'Shared room' não exige a presença de 1 quarto ou banheiro exclusivos.
     df_filtrado.loc[df_filtrado['bedrooms'].isna(),['bedrooms']] = 0
@@ -373,7 +335,7 @@ def imputar_dados_room_type_hotel_room(df: DataFrame):
     beds relacioanados ao filtro da coluna room_type=='Hotel room'."""
 
     # filtra o dataset a partir dos valores da coluna room_type == 'Hotel room'
-    df_filtrado = filtrar_feature_valor_categorico(df, query="room_type=='Hotel room'")
+    df_filtrado = filtrar_dataset(df, query="room_type=='Hotel room'")
 
     # quantidade de banheiros menor que 1 preenchidos com valor 1, já que quarto de hotel tem banheiro.
     df_filtrado.loc[df_filtrado['bathrooms']<1,'bathrooms'] = 1
@@ -434,31 +396,5 @@ def agrupar_dados(df: DataFrame, cols_agrup: list, cols_filter: list=None, agr=N
 
     return df
 
-def power_transform_coluna_categorica(df: pd.DataFrame,cat_col: str,metodo: str = 'yeo-johnson', cols: Optional[list] = None) -> pd.DataFrame:
-    """
-    Aplica PowerTransformer (Box-Cox ou Yeo-Johnson) às colunas numéricas,
-    agrupando os dados por uma coluna categórica.
 
-    Args:
-        df (pd.DataFrame): DataFrame de entrada com colunas numéricas e categóricas.
-        cat_col (str): Nome da coluna categórica usada para agrupar.
-        metodo (str, optional): Método do PowerTransformer ('yeo-johnson' ou 'box-cox').
-        cols (list, optional): Lista de colunas numéricas a transformar. 
-                               Se None, aplica em todas as numéricas.
 
-    Returns:
-        pd.DataFrame: DataFrame com as colunas numéricas transformadas por grupo.
-    """
-    df = df.copy()
-    
-    # Seleção de colunas numéricas (caso o usuário não especifique)
-    if cols is None:
-        cols = df.select_dtypes(include='number').columns.tolist()
-
-    def _transform(group: pd.DataFrame) -> DataFrame:
-        transformer = PowerTransformer(method=metodo, standardize=True)
-        group = group.copy()
-        group[cols] = transformer.fit_transform(group[cols])
-        return group
-
-    return df.groupby(cat_col, group_keys=False).apply(_transform)

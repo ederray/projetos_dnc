@@ -13,10 +13,11 @@ from statsmodels.formula.api import ols
 from statsmodels.stats.anova import anova_lm
 import statsmodels.stats.multicomp as mc
 import re
-from typing import List
+
 
 # instância do objeto logger
 logger = logging.getLogger(__name__)
+
 
 def verificacao_outlier(array, extreme = False):
 
@@ -31,45 +32,34 @@ def verificacao_outlier(array, extreme = False):
     return (array < lower_outlier) | (array > upper_outlier)
 
 
-def teste_normalidade(df: DataFrame, feature: str, num_cols: List[str], alpha: float = 0.05, interativo: bool = False) -> DataFrame:
+def teste_normalidade(df:DataFrame, feature:str, num_cols:list, alpha=0.05, interativo:bool=False) -> DataFrame:
     """
-    Aplica teste de normalidade (Shapiro-Wilk ou Kolmogorov-Smirnov) para as categorias 
-    de uma coluna (feature) ou para o DataFrame inteiro.
-
-    params:
-        df (DataFrame): DataFrame de entrada.
-        feature (str): Nome da coluna categórica para agrupar (modo interativo).
-        num_cols (List[str]): Lista de colunas numéricas para testar.
-        alpha (float): Nível de significância.
-        interativo (bool): Se True, a análise é por categoria com um widget. Se False, a análise é geral.
-
-    return:
-        DataFrame: Um DataFrame com os resultados dos testes de normalidade.
+    Aplica teste de normalidade para as categorias de uma coluna (feature) 
+    ou geral se interativo=False.
     """
-    def processar(dados: DataFrame, categoria: str) -> List[dict]:
-        """
-        Função auxiliar para aplicar os testes de normalidade em um subconjunto de dados.
-        """
+    def processar(dados, categoria):
         results = []
         for num_col in num_cols:
             data = dados[num_col].dropna().values
             n = len(data)
-            
-            # Condições para escolher o teste
             if n < 3:
-                normal = "Amostra insuficiente"
-                test_name, stat, p = None, None, None
-            elif n < 5000: # O limiar de 500 é muito baixo. 5000 é mais comum para KS.
+                results.append({
+                    "Categoria": categoria,
+                    "Coluna": num_col,
+                    "N": n,
+                    "Teste": None,
+                    "Estatística": None,
+                    "p-value": None,
+                    "Normal?": "Amostra insuficiente"
+                })
+                continue
+            if n < 500:
                 test_name = "Shapiro-Wilk"
                 stat, p = shapiro(data)
-                normal = "Sim" if p > alpha else "Não"
             else:
                 test_name = "Kolmogorov-Smirnov"
-                # O K-S compara com uma distribuição padrão, então a padronização é necessária
                 zscores = (data - np.mean(data)) / np.std(data, ddof=1)
                 stat, p = kstest(zscores, 'norm')
-                normal = "Sim" if p > alpha else "Não"
-
             results.append({
                 "Categoria": categoria,
                 "Coluna": num_col,
@@ -77,10 +67,10 @@ def teste_normalidade(df: DataFrame, feature: str, num_cols: List[str], alpha: f
                 "Teste": test_name,
                 "Estatística": stat,
                 "p-value": p,
-                "Normal?": normal
+                "Normal?": "Sim" if p > alpha else "Não"
             })
         return results
-    
+
     if interativo:
         categorias = df[feature].dropna().unique()
         @interact(valor=categorias)
@@ -88,11 +78,12 @@ def teste_normalidade(df: DataFrame, feature: str, num_cols: List[str], alpha: f
             dados = df[df[feature] == valor]
             res = processar(dados, valor)
             display(DataFrame(res))
-        return DataFrame()
-        
     else:
-        resultados_totais = processar(df, "Geral")
-        return DataFrame(resultados_totais)
+        results=[]
+        for categoria in df[feature].dropna().unique():
+            dados=df[df[feature]==categoria]
+            results+=processar(dados,categoria)
+        return DataFrame(results)
 
 
 def teste_qui_quadrado(df:DataFrame, feature:str, num_cols:list, bins=10, alpha=0.05, interativo:bool=False) -> DataFrame:
@@ -134,6 +125,7 @@ def teste_qui_quadrado(df:DataFrame, feature:str, num_cols:list, bins=10, alpha=
             dados=df[df[feature]==categoria]
             results+=processar(dados,categoria)
         return DataFrame(results)
+
 
 def analise_vif(df: DataFrame, feature: str, interativo: bool = False):
     """
@@ -180,7 +172,8 @@ def analise_vif(df: DataFrame, feature: str, interativo: bool = False):
         if df_features.shape[1] < 2:
             return DataFrame(columns=['Feature', 'VIF'])
         return vif_calculator(df_features)
-    
+
+
 def teste_t_duas_amostras(df, coluna_flag, coluna_valor, alpha=0.05):
     """
     Realiza um teste t de Student para comparar a média de uma variável
@@ -217,6 +210,7 @@ def teste_t_duas_amostras(df, coluna_flag, coluna_valor, alpha=0.05):
 
     except Exception as e:
         logger.error(f"Ocorreu um erro inesperado: {e}", exc_info=True)
+
 
 def teste_anova(df, formula, alpha=0.05):
     """
