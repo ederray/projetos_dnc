@@ -26,27 +26,49 @@ clean:
 	find . -type d -name "__pycache__" -delete
 
 
-## Lint using flake8, black, and isort (use `make format` to do formatting)
-.PHONY: lint
-lint:
-	flake8 project_name
-	isort --check --diff project_name
-	black --check project_name
-
-## Format source code with black
+## Formata o código-fonte com isort e black
 .PHONY: format
 format:
 	isort project_name
 	black project_name
 
+## Verifica o código usando flake8, black e isort (use `make format` para corrigir)
+.PHONY: check
+check:
+	@echo "Verificando a formatação e o estilo do código..."
+	black --check --diff project_name
+	isort --check --diff project_name
+	flake8 project_name
+
+## Formata um único arquivo
+.PHONY: format-file
+format-file:
+	@echo "Formatando o arquivo $(FILE)..."
+	isort $(FILE)
+	black $(FILE)
+	@echo "Formatação de $(FILE) concluída."
+
+## Verifica um único arquivo
+.PHONY: check-file
+check-file:
+	@echo "Verificando o arquivo $(FILE)..."
+	black --check --diff $(FILE)
+	isort --check --diff $(FILE)
+	flake8 $(FILE)
+	@echo "Verificação de $(FILE) concluída."
+
 #################################################################################
 # PROJECT RULES                                                                 #
 #################################################################################
 
-## Process raw data into an interim format
-.PHONY: data
-data:
-	$(PYTHON_INTERPRETER) src/scripts/make_dataset.py --input_filepath data/raw --output_filepath data/interim
+## Executar o pré-processamento dos dados.
+PYTHON_INTERPRETER = python
+
+.PHONY: train
+
+train:
+	@echo "Executando o script de pré-processamento e visualização..."
+	set PYTHONPATH=src && python src/models/run_train.py
 
 #################################################################################
 # Self Documenting Commands                                                     #
