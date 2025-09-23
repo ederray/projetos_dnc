@@ -68,7 +68,7 @@ PYTHON_INTERPRETER = python
 
 train:
 	@echo "Executando o script de pré-processamento e visualização..."
-	set PYTHONPATH=src && python src/models/train.py
+	set PYTHONPATH=src && python src/models/run_train.py
 
 #################################################################################
 # Self Documenting Commands                                                     #
