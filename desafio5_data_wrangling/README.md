@@ -14,7 +14,7 @@ O desafio abrange as seguintes etapas:
   * **Limpeza e tratamento** de valores ausentes e inconsistências.
   * **Identificação e remoção de outliers** para evitar distorções na análise.
   * **Transformação** de dados categóricos e numéricos para aprimorar a qualidade do dataset.
-  * **Análise Exploratória de Dados (AED)** para descobrir insights e padrões úteis.
+  * **Análise Exploratória de Dados (EDA)** para descobrir insights e padrões úteis.
 
 -----
 
