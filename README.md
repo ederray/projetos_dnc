@@ -1,6 +1,6 @@
 # 📁 Desafios DNC - Portfólio de Projetos
 
-Bem-vindo(a) à pasta que armazena os desafios de entrega e projetos desenvolvidos durante os formação **DNC (Data Science)**. Este repositório serve como um portfólio para demonstrar as habilidades e técnicas aprendidas, com foco em **Ciência de Dados**.
+Bem-vindo(a) à pasta que armazena os desafios de entrega e projetos desenvolvidos durante os formação **DNC (Formação Data Science)**. Este repositório serve como um portfólio para demonstrar as habilidades e técnicas aprendidas, com foco em **Ciência de Dados**.
 
 ---
 
@@ -10,8 +10,8 @@ Aqui estão os projetos já iniciados e/ou concluídos nesta pasta. Você pode c
 
 | Desafio | Status | Descrição |
 | :--- | :--- | :--- |
-| **desafio1_modelo_previsao** | Em Construção | Construção de um modelo de **série temporal** para previsão de vendas. O projeto inclui o uso de **MLflow** para rastreamento de experimentos, **deploy via API** em um servidor e a criação de um **painel no Power Bi** conexão e resultado da previsão do modelo de negócio emmétricas de negócio de uma loja.|
-| **desafio5_data_wrangling (Airbnb - Rio de Janeiro)** | Concluído | Projeto de **Análise Exploratória de Dados (EDA)** dos dados do **Airbnb do Rio de Janeiro**, focado em limpeza de dados e técnicas de **Data Wrangling**. Inclui a realização de **testes de hipótese** e a criação de um **pipeline automatizado** para processamento de dados usando **Makefile**. |
+| **desafio1_modelo_previsao** | Em Construção | Modelo de **série temporal** para previsão de vendas +  versionamento **MLFlow** + **deploy via API** + **Painel Power BI**.
+| **desafio5_data_wrangling (Airbnb - Rio de Janeiro)** | Concluído | **Análise Exploratória de Dados (EDA)** + **Data Wrangling** + **testes de hipótese** + **pipeline automatizado** com **Makefile**. |
 
 ---
 
